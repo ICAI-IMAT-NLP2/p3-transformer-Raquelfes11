@@ -26,11 +26,13 @@ class AttentionHead(nn.Module):
     def __init__(self, d_model: int, d_k: int, d_q: int, d_v: int):
         super(AttentionHead, self).__init__()
 
-        self.wq = None
-        self.wk = None
-        self.wv = None
+        self.wq = nn.Linear(d_model, d_q)
+        self.wk = nn.Linear(d_model, d_k)
+        self.wv = nn.Linear(d_model, d_v)
 
-    def scaled_dot_product_attention(self, q, k, v, mask=None):
+        self.dim_k = d_k
+
+    def scaled_dot_product_attention(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor=None) -> tuple[torch.Tensor, torch.Tensor]:
         """Calculate the attention weights with optional causal mask.
 
         Args:
@@ -45,26 +47,27 @@ class AttentionHead(nn.Module):
         """
 
         # The dimension of the key tensor, used to scale the scores.
-        dim_k = None
+        dim_k: int = self.dim_k
 
         # Calculate the dot product between query and the transpose of key.
         # The result is then scaled by the square root of dim_k.
-        scores = None
+        scores: torch.Tensor = torch.matmul(q, k.transpose(-2,-1)) / math.sqrt(dim_k)
 
         if mask is not None:
             # Apply the causal mask by setting the masked positions to a very large negative value.
-            scores = None
+            mask_bool: torch.Tensor = mask.to(dtype=torch.bool)
+            scores = scores.masked_fill(~mask_bool, float("-inf"))
 
         # Apply the softmax function to obtain the attention weights.
-        weights = None
+        weights: torch.Tensor = torch.softmax(scores, dim=-1)
 
         # Compute the output by performing a weighted sum of the value tensor
         # using the attention weights.
-        output = None
+        output: torch.Tensor = torch.matmul(weights, v)
 
         return output, weights
 
-    def forward(self, x_q, x_k, x_v, mask=None):
+    def forward(self, x_q: torch.Tensor, x_k: torch.Tensor, x_v: torch.Tensor, mask: torch.Tensor=None) -> torch.Tensor:
         """Forward pass for the attention head with optional causal mask.
 
         Args:
@@ -77,11 +80,12 @@ class AttentionHead(nn.Module):
             Tensor: Output tensor of shape (batch_size, seq_len, d_v).
         """
         # Project input tensor to query, key, and value tensors.
-        q = None
-        k = None
-        v = None
+        q: torch.Tensor = self.wq(x_q)
+        k: torch.Tensor = self.wk(x_k)
+        v: torch.Tensor = self.wv(x_v)
 
-        output, _ = None
+        output: torch.Tensor
+        output, _ = self.scaled_dot_product_attention(q, k, v, mask)
 
         return output
 
@@ -104,13 +108,13 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, d_model: int, num_attention_heads: int):
         super(MultiHeadAttention, self).__init__()
         assert d_model % num_attention_heads == 0, "d_model must be divisible by num_attention_heads"
-        d_v = None
-        d_k = None
+        d_v: int = d_model // num_attention_heads
+        d_k: int = d_model // num_attention_heads
 
-        self.heads = None
-        self.output_linear = None
+        self.heads = nn.ModuleList([AttentionHead(d_model, d_k, d_k, d_v) for _ in range(num_attention_heads)])
+        self.output_linear = nn.Linear(d_v * num_attention_heads, d_model)
 
-    def forward(self, x_q, x_k, x_v, mask=None):
+    def forward(self, x_q: torch.Tensor, x_k: torch.Tensor, x_v: torch.Tensor, mask: torch.Tensor=None) -> torch.Tensor:
         """Forward pass for the multi-head attention layer with optional causal mask.
 
         Args:
@@ -123,10 +127,11 @@ class MultiHeadAttention(nn.Module):
             Tensor: Output tensor of shape (batch_size, seq_len, d_model).
         """
         # Concatenate the outputs from all attention heads.
-        x = None
+        out_heads: list[torch.Tensor] = [head(x_q, x_k, x_v, mask) for head in self.heads]
+        concat: torch.Tensor = torch.cat(out_heads, dim=-1)
 
         # Apply the linear layer 
-        x = None
+        x: torch.Tensor = self.output_linear(concat)
         return x
     
 class FeedForward(nn.Module):
