@@ -46,17 +46,21 @@ class TransformerDecoderLayer(nn.Module):
             torch.Tensor: Output tensor of shape (batch_size, seq_len, d_model).
         """
         # Apply layer normalization and masked multi-head self-attention
-        hidden_state = None
-        x = None
+        norm1: torch.Tensor = self.layer_norm_1(x)
+        hidden_state1: torch.Tensor = self.self_attention(norm1, norm1, norm1, tgt_mask)
+        out1: torch.Tensor = x + hidden_state1
 
         # Apply layer normalization and cross-attention
-        hidden_state = None
-        x = None
+        norm2: torch.Tensor = self.layer_norm_2(out1)
+        hidden_state2: torch.Tensor = self.cross_attention(norm2, enc_output, enc_output,mask=tgt_mask)
+        out2: torch.Tensor = out1 + hidden_state2
         
         # Apply layer normalization and feed-forward network
-        x = None
+        norm3: torch.Tensor = self.layer_norm_3(out2)
+        hidden_state3: torch.Tensor = self.feed_forward(norm3)
+        output: torch.Tensor = hidden_state3 + out2
 
-        return x
+        return output
 
 class TransformerDecoder(nn.Module):
     """Transformer Decoder.
