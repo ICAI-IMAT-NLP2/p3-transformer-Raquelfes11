@@ -85,7 +85,7 @@ class AttentionHead(nn.Module):
         v: torch.Tensor = self.wv(x_v)
 
         output: torch.Tensor
-        output, _ = self.scaled_dot_product_attention(q, k, v, mask=mask)
+        output, _ = self.scaled_dot_product_attention(q, k, v, mask)
 
         return output
 
@@ -109,7 +109,7 @@ class MultiHeadAttention(nn.Module):
         super(MultiHeadAttention, self).__init__()
         assert d_model % num_attention_heads == 0, "d_model must be divisible by num_attention_heads"
         d_v: int = d_model // num_attention_heads
-        d_k: int = d_model // num_attention_heads
+        d_k: int = d_v
 
         self.heads = nn.ModuleList([AttentionHead(d_model, d_k, d_k, d_v) for _ in range(num_attention_heads)])
         self.output_linear = nn.Linear(d_model, d_model)
@@ -127,7 +127,7 @@ class MultiHeadAttention(nn.Module):
             Tensor: Output tensor of shape (batch_size, seq_len, d_model).
         """
         # Concatenate the outputs from all attention heads.
-        out_heads: list[torch.Tensor] = [head(x_q=x_q, x_k=x_k, x_v=x_v, mask=mask) for head in self.heads]
+        out_heads: list[torch.Tensor] = [head(x_q, x_k, x_v, mask) for head in self.heads]
         concat: torch.Tensor = torch.cat(out_heads, dim=-1)
 
         # Apply the linear layer 
