@@ -40,9 +40,23 @@ class Transformer(nn.Module):
                 dec_intermediate_size: int, num_enc_hidden_layers: int, num_dec_hidden_layers: int
                 ):
         super(Transformer, self).__init__()
-        self.encoder = None
-        self.decoder = None
-        self.output_linear = None
+        self.encoder = TransformerEncoder(
+            vocab_size=src_vocab_size, 
+            max_position_embeddings=max_enc_position_embeddings, 
+            d_model=enc_d_model, 
+            num_attention_heads=num_attention_heads, 
+            intermediate_size=enc_intermediate_size, 
+            num_hidden_layers=num_enc_hidden_layers
+            )
+        self.decoder = TransformerDecoder(
+            vocab_size=src_vocab_size, 
+            max_position_embeddings=max_dec_position_embeddings, 
+            d_model=dec_d_model, 
+            num_attention_heads=num_attention_heads, 
+            intermediate_size=dec_intermediate_size, 
+            num_hidden_layers=num_dec_hidden_layers
+            )
+        self.output_linear = nn.Linear(d_model, tgt_vocab_size)
 
     def forward(self, src_input: torch.Tensor, tgt_input: torch.Tensor, attn_mask: torch.Tensor = None) -> torch.Tensor:
         """Forward pass through the Transformer model.
