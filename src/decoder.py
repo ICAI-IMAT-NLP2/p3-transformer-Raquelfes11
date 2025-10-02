@@ -98,7 +98,10 @@ class TransformerDecoder(nn.Module):
             torch.Tensor: Output tensor of shape (batch_size, seq_len, d_model).
         """
         # Generate token embeddings
-        x = None
+        x: torch.Tensor = self.embeddings(input_ids)
+
+        batch_size: int
+        seq_len: int
         batch_size, seq_len, _ = x.size()
 
         # Generate causal mask for target tensor
