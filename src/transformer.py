@@ -178,44 +178,55 @@ class Transformer(nn.Module):
         device = src_input.device
 
         # Pass the source input through the encoder
-        attn_mask = kwargs.get('attn_mask', None)
-        enc_output = None
+        attn_mask: torch.Tensor = kwargs.get('attn_mask', None)
+        enc_output: torch.Tensor = self.encoder(src_input, attn_mask)
 
         # Get start and end tokens
-        SOS_token = kwargs.get('SOS_token', 2)
-        EOS_token = kwargs.get('EOS_token', 3)
+        SOS_token: int = kwargs.get('SOS_token', 2)
+        EOS_token: int = kwargs.get('EOS_token', 3)
 
         # Initialize the beam with the start token
-        tgt_input = None
-        beam = [(tgt_input, 0)]  # Each item is (sequence tensor, cumulative log probability)
+        tgt_input: torch.Tensor = torch.full((batch_size, 1), SOS_token, device=device)
+        beam: list[tuple[torch.Tensor, float]] = [(tgt_input, 0.0)]  # Each item is (sequence tensor, cumulative log probability)
 
         for _ in range(max_length):
             candidates = []
             for seq, score in beam:
+
                 if seq[0, -1].item() == EOS_token:
-                    # If EOS token is reached, add the sequence to candidates without expanding
-                    pass
+                    # If EOS token is reached, add the sequence to candidates without expanding.
+                    candidates.append((seq, score))
+
                 # Pass through the decoder
-                dec_output = None
+                dec_output: torch.Tensor = self.decoder(seq, enc_output)
+
                 # Project to vocabulary size
-                dec_output = None
+                dec_output: torch.Tensor = self.output_linear(dec_output) # (batch, seq_len, vocab_size)
+
                 # Get the logits for the last time step
-                logits = None  # Shape: (1, vocab_size)
+                logits: torch.Tensor = dec_output[:, -1, :]  # Shape: (1, vocab_size)
+
                 # Apply log softmax to get log probabilities
-                log_probs = None  # Shape: (1, vocab_size)
+                log_probs: torch.Tensor = F.log_softmax(logits, dim=-1)  # Shape: (1, vocab_size)
+
                 for next_token in range(log_probs.size(1)):
-                    new_seq = None  # Shape: (1, seq_len+1)
-                    new_score = None
+                    new_seq: torch.Tensor = torch.cat([seq, torch.tensor([[next_token]], device=device)], dim=1)  # Shape: (1, seq_len+1).
+                    new_score: float = score + log_probs[0, next_token].item()
                     candidates.append((new_seq, new_score))
+
             # Select top beam_size sequences
-            beam = None
+            beam: list[tuple[torch.Tensor, float]] = sorted(candidates, key=lambda x: x[-1], reverse=True)[: beam_size]
+
             # If all sequences have reached EOS, stop
             if all(seq[0, -1].item() == EOS_token for seq, _ in beam):
                 break
+
         # Return the sequence with the highest score
-        best_seq = None
+        best_seq: torch.Tensor
+        best_seq, _ = max(beam, key=lambda x: x[1])
+
         # Remove the SOS token
-        generated_sequence = None  # Shape: (1, seq_len)
+        generated_sequence: torch.Tensor = best_seq[:, 1:]  # Shape: (1, seq_len)
         return generated_sequence
     
     def __sampling_decode(self, src_input: torch.Tensor, max_length: int, temperature: float = 1.0, **kwargs) -> torch.Tensor:
