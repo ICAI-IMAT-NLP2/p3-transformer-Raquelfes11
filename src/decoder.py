@@ -52,7 +52,7 @@ class TransformerDecoderLayer(nn.Module):
 
         # Apply layer normalization and cross-attention
         norm2: torch.Tensor = self.layer_norm_2(out1)
-        hidden_state2: torch.Tensor = self.cross_attention(norm2, enc_output, enc_output,mask=tgt_mask)
+        hidden_state2: torch.Tensor = self.cross_attention(norm2, enc_output, enc_output)
         out2: torch.Tensor = out1 + hidden_state2
         
         # Apply layer normalization and feed-forward network
