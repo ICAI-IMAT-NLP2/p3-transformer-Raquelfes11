@@ -55,8 +55,8 @@ class AttentionHead(nn.Module):
 
         if mask is not None:
             # Apply the causal mask by setting the masked positions to a very large negative value.
-            mask_bool: torch.Tensor = mask.to(dtype=torch.bool)
-            scores = scores.masked_fill(~mask_bool, float("-inf"))
+            mask_bool: torch.Tensor = mask.bool()
+            scores = scores.masked_fill(~mask_bool, float("-1e9"))
 
         # Apply the softmax function to obtain the attention weights.
         weights: torch.Tensor = torch.softmax(scores, dim=-1)
@@ -85,7 +85,7 @@ class AttentionHead(nn.Module):
         v: torch.Tensor = self.wv(x_v)
 
         output: torch.Tensor
-        output, _ = self.scaled_dot_product_attention(q, k, v, mask)
+        output, _ = self.scaled_dot_product_attention(q, k, v, mask=mask)
 
         return output
 
@@ -112,7 +112,7 @@ class MultiHeadAttention(nn.Module):
         d_k: int = d_model // num_attention_heads
 
         self.heads = nn.ModuleList([AttentionHead(d_model, d_k, d_k, d_v) for _ in range(num_attention_heads)])
-        self.output_linear = nn.Linear(d_v * num_attention_heads, d_model)
+        self.output_linear = nn.Linear(d_model, d_model)
 
     def forward(self, x_q: torch.Tensor, x_k: torch.Tensor, x_v: torch.Tensor, mask: torch.Tensor=None) -> torch.Tensor:
         """Forward pass for the multi-head attention layer with optional causal mask.
@@ -127,7 +127,7 @@ class MultiHeadAttention(nn.Module):
             Tensor: Output tensor of shape (batch_size, seq_len, d_model).
         """
         # Concatenate the outputs from all attention heads.
-        out_heads: list[torch.Tensor] = [head(x_q, x_k, x_v, mask) for head in self.heads]
+        out_heads: list[torch.Tensor] = [head(x_q=x_q, x_k=x_k, x_v=x_v, mask=mask) for head in self.heads]
         concat: torch.Tensor = torch.cat(out_heads, dim=-1)
 
         # Apply the linear layer 

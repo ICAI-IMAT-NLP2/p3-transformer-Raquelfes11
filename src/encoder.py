@@ -43,13 +43,16 @@ class TransformerEncoderLayer(nn.Module):
             torch.Tensor: Output tensor of shape (batch_size, seq_len, d_model).
         """
         # Apply layer normalization and then apply multi-head attention
-        hidden_state = None
-        x = None
+        inputs_norm: torch.Tensor = self.layer_norm_1(x)
+        hidden_state: torch.Tensor = self.attention(inputs_norm, inputs_norm, inputs_norm, mask = mask)
+        out1: torch.Tensor = hidden_state + x
         
         # Apply layer normalization and then apply feed-forward network
-        x = None
-        
-        return x
+        norm2: torch.Tensor = self.layer_norm_2(out1)
+        hidden_state2: torch.Tensor = self.feed_forward(norm2)
+        out2: torch.Tensor = hidden_state2 + out1
+
+        return out2
     
 class TransformerEncoder(nn.Module):
     """Transformer Encoder.
@@ -88,7 +91,7 @@ class TransformerEncoder(nn.Module):
             torch.Tensor: Output tensor of shape (batch_size, seq_len, d_model).
         """
         # Apply embeddings layer
-        x = None
+        x: torch.Tensor = self.embeddings(x) 
 
         for layer in self.layers:
             x = layer(x, mask)
