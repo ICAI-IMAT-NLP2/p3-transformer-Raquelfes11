@@ -44,7 +44,7 @@ class TransformerEncoderLayer(nn.Module):
         """
         # Apply layer normalization and then apply multi-head attention
         inputs_norm: torch.Tensor = self.layer_norm_1(x)
-        hidden_state: torch.Tensor = self.attention(inputs_norm, inputs_norm, inputs_norm, mask = mask)
+        hidden_state: torch.Tensor = self.attention(inputs_norm, inputs_norm, inputs_norm, mask)
         out1: torch.Tensor = hidden_state + x
         
         # Apply layer normalization and then apply feed-forward network
