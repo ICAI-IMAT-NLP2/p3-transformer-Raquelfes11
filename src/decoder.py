@@ -105,7 +105,7 @@ class TransformerDecoder(nn.Module):
         batch_size, seq_len, _ = x.size()
 
         # Generate causal mask for target tensor
-        tgt_mask = None
+        tgt_mask: torch.Tensor = torch.tril(torch.ones((batch_size, seq_len, seq_len))).bool()
 
         for layer in self.layers:
             x = layer(x, enc_output, tgt_mask)
