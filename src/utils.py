@@ -165,9 +165,9 @@ class FeedForward(nn.Module):
         Returns:
             torch.Tensor: Output tensor of shape (batch_size, seq_len, d_model).
         """
-        x = self.linear_1(x)
-        x = self.gelu(x)
-        x = self.linear_2(x)
+        x: torch.Tensor = self.linear_1(x)
+        x: torch.Tensor = self.gelu(x)
+        x: torch.Tensor = self.linear_2(x)
         return x
     
 class Embeddings(nn.Module):
@@ -202,16 +202,16 @@ class Embeddings(nn.Module):
         Returns:
             torch.Tensor: The combined and normalized embeddings of shape (batch_size, seq_len, d_model).
         """
-        seq_length = input_ids.size(1)
-        position_ids = torch.arange(seq_length, dtype=torch.long, device=input_ids.device).unsqueeze(0)
+        seq_length: int = input_ids.size(1)
+        position_ids: torch.Tensor = torch.arange(seq_length, dtype=torch.long, device=input_ids.device).unsqueeze(0)
 
         # Create token and position embeddings
-        token_embeddings = self.token_embeddings(input_ids)
-        position_embeddings = self.position_embeddings(position_ids)
+        token_embeddings: torch.Tensor = self.token_embeddings(input_ids)
+        position_embeddings: torch.Tensor = self.position_embeddings(position_ids)
 
         # Combine token and position embeddings
-        embeddings = token_embeddings + position_embeddings
-        embeddings = self.layer_norm(embeddings)
+        embeddings: torch.Tensor = token_embeddings + position_embeddings
+        embeddings: torch.Tensor = self.layer_norm(embeddings)
 
         return embeddings
 
