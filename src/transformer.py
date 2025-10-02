@@ -40,6 +40,7 @@ class Transformer(nn.Module):
                 dec_intermediate_size: int, num_enc_hidden_layers: int, num_dec_hidden_layers: int
                 ):
         super(Transformer, self).__init__()
+        # TODO
         self.encoder = TransformerEncoder(
             vocab_size=src_vocab_size, 
             max_position_embeddings=max_enc_position_embeddings, 
@@ -56,7 +57,7 @@ class Transformer(nn.Module):
             intermediate_size=dec_intermediate_size, 
             num_hidden_layers=num_dec_hidden_layers
             )
-        self.output_linear = nn.Linear(d_model, tgt_vocab_size)
+        self.output_linear = nn.Linear(dec_d_model, tgt_vocab_size)
 
     def forward(self, src_input: torch.Tensor, tgt_input: torch.Tensor, attn_mask: torch.Tensor = None) -> torch.Tensor:
         """Forward pass through the Transformer model.
@@ -69,16 +70,17 @@ class Transformer(nn.Module):
         Returns:
             torch.Tensor: Output tensor of shape (batch_size, tgt_seq_len, tgt_vocab_size).
         """
+        # TODO
         # Pass the source input through the encoder
-        enc_output = None
+        enc_output: torch.Tensor = self.encoder(src_input, attn_mask)
 
         # Pass the target input through the decoder, with the encoder output
-        dec_output = None
+        dec_output: torch.Tensor = self.decoder(tgt_input, enc_output)
 
         # Project the decoder output to the target vocabulary size
-        dec_output = None
+        transformer_output: torch.Tensor = self.output_linear(dec_output)
 
-        return dec_output
+        return transformer_output
     
     def generate(self, src_input: torch.Tensor, max_length: int = 50, decoding_strategy: str = 'greedy', **kwargs) -> torch.Tensor:
         """Generate a sequence given a source input using different decoding strategies.
@@ -120,36 +122,41 @@ class Transformer(nn.Module):
             torch.Tensor: Generated sequence of token IDs of shape (batch_size, generated_seq_len).
         """
         # Pass the source input through the encoder
-        attn_mask = kwargs.get('attn_mask', None)
-        enc_output = None
+        attn_mask: torch.Tensor = kwargs.get('attn_mask', None)
+        enc_output: torch.Tensor = self.encoder(src_input, attn_mask)
 
-        batch_size = src_input.size(0)
+        batch_size: int = src_input.size(0)
         device = src_input.device
 
         # Get start and end tokens
-        SOS_token = kwargs.get('SOS_token', 2)  # Default SOS token index
-        EOS_token = kwargs.get('EOS_token', 3)  # Default EOS token index
+        SOS_token: int = kwargs.get('SOS_token', 2)  # Default SOS token index
+        EOS_token: int = kwargs.get('EOS_token', 3)  # Default EOS token index
 
         # Initialize the target sequence with SOS_token
-        tgt_input = None
+        tgt_input: torch.Tensor = torch.full((batch_size, 1), SOS_token, device=device)
 
         for _ in range(max_length):
             # Pass through the decoder
-            dec_output = None
+            dec_output: torch.Tensor = self.decoder(tgt_input, enc_output)
+
             # Project the decoder output to vocabulary size
-            dec_output = None
+            dec_output: torch.Tensor = self.output_linear(dec_output) # (batch, seq_len, vocab_size)
+
             # Get the logits for the last time step
-            logits = None # Shape: (batch_size, vocab_size)
+            logits: torch.Tensor = dec_output[:, -1, :] # Shape: (batch_size, vocab_size)
+
             # Get the token with the highest probability
-            next_token = None  # Shape: (batch_size, 1)
+            next_token: torch.Tensor = torch.argmax(logits, dim=-1, keepdim=True)  # Shape: (batch_size, 1)
+
             # Append the next token to the target sequence
-            tgt_input = None
+            tgt_input: torch.Tensor = torch.cat([tgt_input, next_token], dim=1)  # (batch_size, cur_len+1)
+
             # Check if all sequences have generated EOS_token
             if (next_token == EOS_token).all():
                 break
 
         # Return the generated sequences (excluding the first SOS token)
-        generated_sequence = None # Shape: (batch_size, seq_len)
+        generated_sequence: torch.Tensor = tgt_input[:, 1:] # Shape: (batch_size, seq_len)
         return generated_sequence
 
     def __beam_search_decode(self, src_input: torch.Tensor, max_length: int, beam_size: int = 3, **kwargs) -> torch.Tensor:
