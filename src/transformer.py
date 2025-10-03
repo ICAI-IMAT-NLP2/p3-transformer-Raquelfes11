@@ -242,45 +242,47 @@ class Transformer(nn.Module):
             torch.Tensor: Generated sequence of token IDs of shape (batch_size, generated_seq_len).
         """
         # Pass the source input through the encoder
-        attn_mask = kwargs.get('attn_mask', None)
-        enc_output = None
+        attn_mask: torch.Tensor = kwargs.get('attn_mask', None)
+        enc_output: torch.Tensor = self.encoder(src_input, attn_mask)
 
-        batch_size = src_input.size(0)
+        batch_size: int = src_input.size(0)
         device = src_input.device
 
         # Get start and end tokens
-        SOS_token = kwargs.get('SOS_token', 2)
-        EOS_token = kwargs.get('EOS_token', 3)
+        SOS_token: int = kwargs.get('SOS_token', 2)
+        EOS_token: int = kwargs.get('EOS_token', 3)
 
         # Initialize the target sequence with SOS_token
-        tgt_input = None
+        tgt_input: torch.Tensor = torch.full((batch_size,1), SOS_token, device=device) 
 
         for _ in range(max_length):
             # Pass through the decoder
-            dec_output = None
+            dec_output: torch.Tensor = self.decoder(tgt_input, enc_output)
+
             # Project to vocabulary size
-            dec_output = None
+            dec_output: torch.Tensor = self.output_linear(dec_output) # (batch, seq_len, vocab_size)
+
             # Get the logits for the last time step
-            logits = None  # Shape: (batch_size, vocab_size)
+            logits: torch.Tensor = dec_output[:, -1, :]  # Shape: (batch_size, vocab_size)
 
             # Apply temperature scaling to the logits
-            scaled_logits = None
+            scaled_logits: torch.Tensor = logits / temperature
 
             # Apply softmax to get probabilities
-            probs = None
+            probs: torch.Tensor = torch.softmax(scaled_logits, dim=-1)
 
             # Sample from the probability distribution
-            next_token = None  # Shape: (batch_size, 1)
+            next_token: torch.Tensor = torch.multinomial(probs, num_samples=1)  # Shape: (batch_size, 1)
 
             # Append the next token to tgt_input
-            tgt_input = None
+            tgt_input: torch.Tensor = torch.cat([tgt_input, next_token], dim=1)
 
             # Check if all sequences have generated EOS_token
             if (next_token == EOS_token).all():
                 break
 
         # Return the generated sequences (excluding the first SOS token)
-        generated_sequence = None
+        generated_sequence: torch.Tensor = tgt_input[:, 1:]
         return generated_sequence
 
     def __top_k_sampling_decode(self, src_input: torch.Tensor, max_length: int, k: int = 10, **kwargs) -> torch.Tensor:
