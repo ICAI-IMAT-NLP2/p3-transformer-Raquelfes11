@@ -386,7 +386,7 @@ class Transformer(nn.Module):
             probs: torch.Tensor = F.softmax(logits, dim=-1)
 
             # Sort the probabilities
-            sorted_probs, sorted_indices = None
+            sorted_probs, sorted_indices = torch.topk(probs, k = probs.shape[-1])
 
             # Compute cumulative probabilities
             cumulative_probs = None
@@ -405,14 +405,14 @@ class Transformer(nn.Module):
             next_token = None
 
             # Append next token to tgt_input
-            tgt_input = None
+            tgt_input: torch.Tensor = torch.cat([tgt_input, next_token], dim=1) 
 
             # Check if all sequences have generated EOS_token
             if (next_token == EOS_token).all():
                 break
 
         # Return the generated sequences (excluding the first SOS token)
-        generated_sequence = None
+        generated_sequence: torch.Tensor = tgt_input[:, 1:]
         return generated_sequence
     
     def __contrastive_decode(self, src_input: torch.Tensor, max_length: int, k: int = 5, alpha: float = 0.6, **kwargs) -> torch.Tensor:
