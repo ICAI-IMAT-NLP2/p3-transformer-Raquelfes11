@@ -386,23 +386,23 @@ class Transformer(nn.Module):
             probs: torch.Tensor = F.softmax(logits, dim=-1)
 
             # Sort the probabilities
-            sorted_probs, sorted_indices = torch.topk(probs, k = probs.shape[-1])
+            sorted_probs, sorted_indices = torch.sort(probs, descending=True, dim=-1)
 
             # Compute cumulative probabilities
-            cumulative_probs = None
+            cumulative_probs: torch.Tensor = torch.cumsum(sorted_probs, dim=-1)
 
             # Remove tokens with cumulative probability above p
-            sorted_indices_to_remove = None
-            sorted_probs[sorted_indices_to_remove] = 0
+            sorted_indices_to_remove: torch.Tensor = cumulative_probs > p
+            sorted_probs[sorted_indices_to_remove] = 0.0
 
             # Normalize the probabilities
-            sorted_probs = None
+            sorted_probs: torch.Tensor = sorted_probs / sorted_probs.sum(dim=-1, keepdim=True)
 
             # Sample from the filtered distribution
-            next_token = None
+            next_token: torch.Tensor = torch.multinomial(sorted_probs, num_samples=1)
 
             # Map sampled indices to original token indices
-            next_token = None
+            next_token: torch.Tensor = torch.gather(sorted_indices, -1, next_token)
 
             # Append next token to tgt_input
             tgt_input: torch.Tensor = torch.cat([tgt_input, next_token], dim=1) 
@@ -429,69 +429,74 @@ class Transformer(nn.Module):
             torch.Tensor: Generated sequence of token IDs of shape (batch_size, generated_seq_len).
         """
         # Pass the source input through the encoder
-        attn_mask = kwargs.get('attn_mask', None)
-        enc_output = None
+        attn_mask: torch.Tensor = kwargs.get('attn_mask', None)
+        enc_output: torch.Tensor = self.encoder(src_input, attn_mask)
 
-        batch_size = src_input.size(0)
+        batch_size: int = src_input.size(0)
         device = src_input.device
 
         # Get start and end tokens
-        SOS_token = kwargs.get('SOS_token', 2)
-        EOS_token = kwargs.get('EOS_token', 3)
+        SOS_token: int = kwargs.get('SOS_token', 2)
+        EOS_token: int = kwargs.get('EOS_token', 3)
 
         # Initialize the target sequence with SOS_token
-        tgt_input = None
+        tgt_input: torch.Tensor = torch.full((batch_size, 1), SOS_token, device=device)
 
         for _ in range(max_length):
             # Pass through the decoder
-            dec_output = None
+            dec_output: torch.Tensor = self.decoder(tgt_input, enc_output)
+
             # Project to vocabulary size
-            dec_output = None
+            dec_output: torch.Tensor = self.output_linear(dec_output)
+
             # Get the logits for the last time step
-            logits = None  # Shape: (batch_size, vocab_size)
+            logits: torch.Tensor = dec_output[:, -1, :]  # Shape: (batch_size, vocab_size)
+
             # Apply log softmax to get log probabilities
-            probs = None
+            probs: torch.Tensor = torch.log_softmax(logits, dim=-1)
+
             # Get the top k tokens
-            topk_probs, topk_indices = None
+            topk_probs, topk_indices = torch.topk(probs, k)
 
             # Prepare tensors for all candidates
-            expanded_tgt_input = None  # Shape: (k, seq_len)
-            next_tokens = None  # Shape: (k, 1)
-            y_candidates = None  # Shape: (k, seq_len + 1)
+            expanded_tgt_input: torch.Tensor = tgt_input.repeat_interleave(k, dim= 0)  # Shape: (k, seq_len)
+            next_tokens: torch.Tensor = topk_indices.view(-1, 1)  # Shape: (k, 1)
+            y_candidates: torch.Tensor = torch.cat([expanded_tgt_input, next_tokens], dim=1)  # Shape: (k, seq_len + 1)
 
             # Pass each candidate through the decoder
-            dec_outputs_candidate = None
+            dec_outputs_candidate: torch.Tensor = self.decoder(y_candidates, enc_output.repeat(k,1,1))
 
             # Extract hidden states
-            h_v = None  # Shape: (k, hidden_size)
-            h_j = None  # Shape: (k, seq_len, hidden_size)
+            h_v: torch.Tensor = dec_outputs_candidate[:, -1, :]  # Shape: (k, hidden_size)
+            h_j: torch.Tensor = dec_outputs_candidate[:, :-1, :]  # Shape: (k, seq_len, hidden_size)
 
             # Normalize hidden states
-            h_v_norm = None  # Shape: (k, hidden_size)
-            h_j_norm = None  # Shape: (k, seq_len, hidden_size)
+            h_v_norm: torch.Tensor = F.normalize(h_v, dim=-1)  # Shape: (k, hidden_size)
+            h_j_norm: torch.Tensor = F.normalize(h_j, dim=-1)  # Shape: (k, seq_len, hidden_size)
 
             # Compute cosine similarities between h_v and each h_j
-            cos_sim = None  # Shape: (k, seq_len)
+            cos_sim: torch.Tensor = torch.bmm(h_j_norm, h_v_norm.unsqueeze(-1)).squeeze(-1)  # Shape: (k, seq_len)
 
             # Get maximum cosine similarity for each candidate
-            max_sim = None  # Shape: (k,)
+            max_sim: torch.Tensor = torch.max(cos_sim, dim=-1).values  # Shape: (k,)
 
             # Compute scores
-            P_LM_v = None  # Shape: (k,)
-            scores = None  # Shape: (k,)
+            P_LM_v: torch.Tensor = topk_probs.squeeze(0)  # Shape: (k,)
+            scores: torch.Tensor = (1 - alpha) * P_LM_v - alpha * max_sim  # Shape: (k,)
 
             # Select the candidate with the highest score
-            best_idx = None
-            best_token = None  # Shape: (1, 1)
+            best_idx: torch.Tensor = torch.argmax(scores)
+            best_token: torch.Tensor = topk_indices[:, best_idx].unsqueeze(0)  # Shape: (1, 1)
+
             # Append the selected token to the target sequence
-            tgt_input = None  # Shape: (1, seq_len + 1)
+            tgt_input: torch.Tensor = torch.cat([tgt_input, best_token], dim=1)  # Shape: (1, seq_len + 1)
 
             # Check for EOS_token
             if best_token.item() == EOS_token:
                 break
 
         # Return generated sequence excluding SOS_token
-        generated_sequence = None
+        generated_sequence: torch.Tensor = tgt_input[:, 1:]
         return generated_sequence
 
 
