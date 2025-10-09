@@ -30,8 +30,6 @@ class AttentionHead(nn.Module):
         self.wk = nn.Linear(d_model, d_k)
         self.wv = nn.Linear(d_model, d_v)
 
-        self.dim_k = d_k
-
     def scaled_dot_product_attention(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, mask: torch.Tensor=None) -> tuple[torch.Tensor, torch.Tensor]:
         """Calculate the attention weights with optional causal mask.
 
@@ -47,7 +45,7 @@ class AttentionHead(nn.Module):
         """
 
         # The dimension of the key tensor, used to scale the scores.
-        dim_k: int = self.dim_k
+        dim_k: int = q.size(-1)
 
         # Calculate the dot product between query and the transpose of key.
         # The result is then scaled by the square root of dim_k.
