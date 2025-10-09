@@ -6,6 +6,7 @@ try:
 except ModuleNotFoundError:
     from src.utils import MultiHeadAttention, FeedForward, Embeddings
 
+
 class TransformerEncoderLayer(nn.Module):
     """Transformer Encoder Layer.
 
@@ -44,16 +45,19 @@ class TransformerEncoderLayer(nn.Module):
         """
         # Apply layer normalization and then apply multi-head attention
         inputs_norm: torch.Tensor = self.layer_norm_1(x)
-        hidden_state: torch.Tensor = self.attention(inputs_norm, inputs_norm, inputs_norm, mask)
+        hidden_state: torch.Tensor = self.attention(
+            inputs_norm, inputs_norm, inputs_norm, mask
+        )
         out1: torch.Tensor = hidden_state + x
-        
+
         # Apply layer normalization and then apply feed-forward network
         norm2: torch.Tensor = self.layer_norm_2(out1)
         hidden_state2: torch.Tensor = self.feed_forward(norm2)
         out2: torch.Tensor = hidden_state2 + out1
 
         return out2
-    
+
+
 class TransformerEncoder(nn.Module):
     """Transformer Encoder.
 
@@ -73,12 +77,23 @@ class TransformerEncoder(nn.Module):
         layers (nn.ModuleList): List of Transformer encoder layers.
     """
 
-    def __init__(self, vocab_size: int, max_position_embeddings: int, d_model: int,
-                num_attention_heads: int, intermediate_size: int, num_hidden_layers: int
-                ):
+    def __init__(
+        self,
+        vocab_size: int,
+        max_position_embeddings: int,
+        d_model: int,
+        num_attention_heads: int,
+        intermediate_size: int,
+        num_hidden_layers: int,
+    ):
         super(TransformerEncoder, self).__init__()
         self.embeddings = Embeddings(vocab_size, max_position_embeddings, d_model)
-        self.layers = nn.ModuleList([TransformerEncoderLayer(d_model, num_attention_heads, intermediate_size) for _ in range(num_hidden_layers)])
+        self.layers = nn.ModuleList(
+            [
+                TransformerEncoderLayer(d_model, num_attention_heads, intermediate_size)
+                for _ in range(num_hidden_layers)
+            ]
+        )
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """Forward pass through the Transformer encoder.
@@ -91,9 +106,8 @@ class TransformerEncoder(nn.Module):
             torch.Tensor: Output tensor of shape (batch_size, seq_len, d_model).
         """
         # Apply embeddings layer
-        x: torch.Tensor = self.embeddings(x) 
+        x: torch.Tensor = self.embeddings(x)
 
         for layer in self.layers:
             x = layer(x, mask)
         return x
-    
